@@ -99,8 +99,6 @@ class game:
                     if self.board[x+i][y+j] == 0:
                         moves.add((x+i, y+j))
                     else:
-                        if x== 9 and y == 9:
-                            print(self.isValid(x, y, x+i*2, y+j*2))
                         if self.isValid(x, y, x+i*2, y+j*2) and self.board[x+i*2][y+j*2] == 0:
                             moves.add((x+i*2, y+j*2))
                             self.dfs(moves, x+i*2, y+j*2, 1)
@@ -208,6 +206,45 @@ class game:
                         score += abs(goal_x-i) + abs(goal_y-j)
             return -score
 
+def dfs(game, parents, startX, startY, endX, endY):
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            if i == 0 and j == 0:
+                continue
+            if game.isValid(startX, startY, startX+i, startY+j):
+                if game.board[startX+i][startY+j] != 0:
+                    if game.isValid(startX, startY, startX+i*2, startY+j*2) and game.board[startX+i*2][startY+j*2] == 0:
+                        if (startX+2*i, startY+2*j) in parents:
+                            
+                            if(startX+2*i == endX and startY+2*j == endY):
+                                pass
+                            else:
+                                continue
+                        parents[(startX+2*i, startY+2*j)] = (startX, startY)
+                        
+                        if(startX+2*i == endX and startY+2*j == endY):
+                            pass
+                        else:
+                            dfs(game, parents, startX+2*i, startY+2*j, endX, endY)
+
+def findJumpPath(game, startX, startY, endX, endY):
+    parents = dict()
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            if i == 0 and j == 0:
+                continue
+            if game.isValid(startX, startY, startX+i, startY+j):
+                if game.board[startX+i][startY+j] != 0:
+                    if game.isValid(startX, startY, startX+i*2, startY+j*2) and game.board[startX+i*2][startY+j*2] == 0:
+                        parents[(startX+2*i, startY+2*j)] = (startX, startY)
+                        if(startX+2*i == endX and startY+2*j == endY):
+                            pass
+                        else:
+                            dfs(game, parents, startX+2*i, startY+2*j, endX, endY)
+    return parents
+
+
+
 def abSearch(game, depth):
     test = lambda state, d: game.time > 20 or d > depth or game.ifWin(state)
     eval_fn = game.eval_fn
@@ -304,10 +341,21 @@ def main():
                                     temp = "E "
                                     break
                         #if temp == "E ": continue
-                        with open("output.txt", "w") as f:
-                            f.write(temp + str(i) + "," + str(j) + " " + str(moveToX) + "," + str(moveToY))
-                        f.close()
-                        pass             
+                        if temp == "J ":
+                            newMoves = findJumpPath(newGame, i, j, moveToX, moveToY)
+                            with open("output.txt", "w") as f:
+                                if temp == "E ":
+                                    f.write(temp + str(i) + "," + str(j) + " " + str(moveToX) + "," + str(moveToY))
+                                else:
+                                    for move in newMoves:
+                                        k = 1
+                                        if k != len(moves):
+                                            f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
+                                        else:
+                                            f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
+                                        k += 1
+                            f.close()
+                            pass           
         else:
             for i in range(16):
                 for j in range(16):
@@ -323,10 +371,21 @@ def main():
                                         if i+m == moveToX and j+n == moveToY:
                                             temp = "E "
                                             break
+                                if temp == "J ":
+                                    newMoves = findJumpPath(newGame, i, j, moveToX, moveToY)
                                 with open("output.txt", "w") as f:
-                                    f.write(temp + str(i) + "," + str(j) + " " + str(moveToX) + "," + str(moveToY))
+                                    if temp == "E ":
+                                        f.write(temp + str(i) + "," + str(j) + " " + str(moveToX) + "," + str(moveToY))
+                                    else:
+                                        for move in newMoves:
+                                            k = 1
+                                            if k != len(moves):
+                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
+                                            else:
+                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
+                                            k += 1
                                 f.close()
-                                pass 
+                                pass
             cornor = (15,15)
             if newGame.cur_player == 1:
                 cornor = (0,0)
@@ -350,17 +409,41 @@ def main():
                                         if i+m == moveToX and j+n == moveToY:
                                             temp = "E "
                                             break
+                                if temp == "J ":
+                                    newMoves = findJumpPath(newGame, i, j, endX, endY)
                                 with open("output.txt", "w") as f:
-                                    f.write(temp + str(i) + "," + str(j) + " " + str(endX) + "," + str(endY))
+                                    if temp == "E ":
+                                        f.write(temp + str(i) + "," + str(j) + " " + str(endX) + "," + str(endY))
+                                    else:
+                                        for move in newMoves:
+                                            k = 1
+                                            if k != len(moves):
+                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
+                                            else:
+                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
+                                            k += 1
                                 f.close()
                                 pass
     else:
         nextMove = abSearch(newGame, 5)
-        print(nextMove.startX, nextMove.startY, nextMove.endX, nextMove.endY)
+        moves = findJumpPath(newGame, nextMove.startX, nextMove.startY, nextMove.endX, nextMove.endY)
+        #print(moves)
+
+        temp = "J "
+        with open("output.txt", "w") as f:
+            i = 1
+            for move in moves:
+                if i != len(moves):
+                    f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
+                else:
+                    f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
+                i += 1
+        f.close()
 
 
 if __name__ == "__main__":
     main()
+
 
         
 
