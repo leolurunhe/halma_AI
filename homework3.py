@@ -10,13 +10,14 @@ class moveAction:
         self.endY = end[1]
 
 class game:
-    def __init__(self, size, color, board, time):
+    def __init__(self, size, color, board, time1):
         self.size = size
         self.board = board
         self.color = color
         self.cur_player = 1
         self.color1 = color
-        self.time = time
+        self.time = time1
+        self.startTime = time.time()
         if color == "BLACK":
             self.color2 = "WHITE"
             self.cur_player = 1 #black
@@ -47,63 +48,69 @@ class game:
         for i in range(14, 16):
             self.camps[i][11] = -1
         
-    def isValid(self, startx, starty, endx, endy):
+    def isValid(self, startx, starty, endx, endy, player):
         '''
         Check if (endx, endy) is valid to go
         '''
         if endx < 0 or endy < 0 or endx>=self.size or endy>=self.size:
             return False
-        if self.camps[startx][starty] != self.cur_player and self.camps[endx][endy] == self.cur_player: #jump back to camp
+        if self.camps[startx][starty] != player and self.camps[endx][endy] == player: #jump back to camp
             return False
         return True
     
-    def isOneInsideCamp(self):
+    def isOneInsideCamp(self, player):
         '''
         Check if there is one chess in camp
         '''
         for i in range(self.size):
             for j in range(self.size):
-                if self.board[i][j] == self.cur_player and self.camps[i][j] == self.cur_player:
+                if self.board[i][j] == player and self.camps[i][j] == player:
                     return True
         return False
 
-    def dfs(self, moves, x, y, depth):
+    def dfs(self, moves, x, y, depth, player, state):
         
         for i in range(-1, 2):
             for j in range(-1, 2):
                 if i==0 and j==0:
                     continue
-                if self.isValid(x, y, x+i, y+j):
-                    if self.board[x+i][y+j] != 0:
-                        if self.isValid(x, y, x+i*2, y+j*2) and self.board[x+i*2][y+j*2] == 0:
+                if self.isValid(x, y, x+i, y+j, player):
+                    if state[x+i][y+j] != 0:
+                        if self.isValid(x, y, x+i*2, y+j*2, player) and state[x+i*2][y+j*2] == 0:
                             if (x+2*i, y+2*j) in moves:
                                 continue
                             moves.add((x+2*i, y+2*j))
-                            self.dfs(moves, x+2*i, y+2*j, depth+1)
+                            self.dfs(moves, x+2*i, y+2*j, depth+1, player, state)
                 else:
                     continue
 
-    def find_moves(self, x, y):
+    def find_moves(self, x, y, player, state):
         '''
         Find possible moves for chess at (x, y)
         '''
         moves = set()
-        if self.camps[x][y] != 0 and self.camps[x][y] != self.cur_player: #in op camp
+        if self.camps[x][y] != 0 and self.camps[x][y] != player: #in op camp
             return moves
         for i in range(-1, 2):
             for j in range(-1, 2):
                 if i==0 and j==0:
                     continue
-                if self.isValid(x, y, x+i, y+j):
+                if self.isValid(x, y, x+i, y+j, player):
                     
-                    if self.board[x+i][y+j] == 0:
+                    if state[x+i][y+j] == 0:
                         moves.add((x+i, y+j))
                     else:
-                        if self.isValid(x, y, x+i*2, y+j*2) and self.board[x+i*2][y+j*2] == 0:
+                        if self.isValid(x, y, x+i*2, y+j*2, player) and state[x+i*2][y+j*2] == 0:
                             moves.add((x+i*2, y+j*2))
-                            self.dfs(moves, x+i*2, y+j*2, 1)
+                            self.dfs(moves, x+i*2, y+j*2, 1, player, state)
         
         return moves
+
+
+    
+
+    
+
 
     def find_all_moves(self, player, state):
         '''
@@ -111,15 +118,17 @@ class game:
         '''
         res = []
         
-        if not self.isOneInsideCamp():
+        if not self.isOneInsideCamp(player):
             for i in range(self.size):
                 for j in range(self.size):
-                    if self.board[i][j] == player:
+                    if state[i][j] == player:
                         if self.camps[i][j] != 0 and self.camps[i][j] != player:
                             #in op camp
                             continue
-                        moves = self.find_moves(i, j)
+                        moves = self.find_moves(i, j, player, state)
                         
+                        if len(moves) == 0:
+                            continue
                         for move in moves:
                             action = moveAction((i, j), move)
                             res.append((action, self.getNextBoard(action, state)))
@@ -127,8 +136,11 @@ class game:
         else:
             for i in range(self.size):
                 for j in range(self.size):
-                    if self.camps[i][j] == player and self.board[i][j] == player:
-                        moves = self.find_moves(i, j)
+                    if self.camps[i][j] == player and state[i][j] == player:
+                        #print(i, j)
+                        moves = self.find_moves(i, j, player, state)
+                        if len(moves) == 0:
+                            continue
                         for move in moves:
                             if self.camps[move[0]][move[1]] != player:
                                 action = moveAction((i, j), move)
@@ -137,24 +149,40 @@ class game:
                 return res
             else:
                 cornor = (0,0)
-                if self.cur_player == 1:
+                if player == -1:
                     cornor = (15,15)
                 for i in range(self.size):
                     for j in range(self.size):
-                        if self.camps[i][j] == player and self.board[i][j] == player:
-                            moves = self.find_moves(i, j)
+                        if self.camps[i][j] == player and state[i][j] == player:
+                            moves = self.find_moves(i, j, player, state)
                             for move in moves:
                                 endX = move[0]
                                 endY = move[1]
-                                cornorX = cornor[0]
-                                cornorY = cornor[1]
-                                originalDis = math.fabs(i-cornorX) + math.fabs(j-cornorY)
-                                newDis = math.fabs(endX-cornorX) + math.fabs(endY-cornorY)
-                                if newDis <= originalDis:
-                                    continue
+                                if cornor == (0,0):
+                                    if endX < i or endY < j:
+                                        continue
+                                elif cornor == (15, 15):
+                                    if endX > i or endY > j:
+                                        continue
                                 action = moveAction((i, j), move)
                                 res.append((action, self.getNextBoard(action, state)))
-                return res
+                if len(res) != 0:
+                    return res
+        if len(res) == 0:
+            for i in range(self.size):
+                for j in range(self.size):
+                    if state[i][j] == player:
+                        if self.camps[i][j] != 0 and self.camps[i][j] != player:
+                            #in op camp
+                            continue
+                        moves = self.find_moves(i, j, player, state)
+                        
+                        if len(moves) == 0:
+                            continue
+                        for move in moves:
+                            action = moveAction((i, j), move)
+                            res.append((action, self.getNextBoard(action, state)))
+            return res  
         return res
 
     
@@ -211,9 +239,9 @@ def dfs(game, parents, startX, startY, endX, endY):
         for j in range(-1, 2):
             if i == 0 and j == 0:
                 continue
-            if game.isValid(startX, startY, startX+i, startY+j):
+            if game.isValid(startX, startY, startX+i, startY+j, game.cur_player):
                 if game.board[startX+i][startY+j] != 0:
-                    if game.isValid(startX, startY, startX+i*2, startY+j*2) and game.board[startX+i*2][startY+j*2] == 0:
+                    if game.isValid(startX, startY, startX+i*2, startY+j*2, game.cur_player) and game.board[startX+i*2][startY+j*2] == 0:
                         if (startX+2*i, startY+2*j) in parents:
                             
                             if(startX+2*i == endX and startY+2*j == endY):
@@ -233,9 +261,9 @@ def findJumpPath(game, startX, startY, endX, endY):
         for j in range(-1, 2):
             if i == 0 and j == 0:
                 continue
-            if game.isValid(startX, startY, startX+i, startY+j):
+            if game.isValid(startX, startY, startX+i, startY+j, game.cur_player):
                 if game.board[startX+i][startY+j] != 0:
-                    if game.isValid(startX, startY, startX+i*2, startY+j*2) and game.board[startX+i*2][startY+j*2] == 0:
+                    if game.isValid(startX, startY, startX+i*2, startY+j*2, game.cur_player) and game.board[startX+i*2][startY+j*2] == 0:
                         parents[(startX+2*i, startY+2*j)] = (startX, startY)
                         if(startX+2*i == endX and startY+2*j == endY):
                             pass
@@ -246,7 +274,7 @@ def findJumpPath(game, startX, startY, endX, endY):
 
 
 def abSearch(game, depth):
-    test = lambda state, d: game.time > 20 or d > depth or game.ifWin(state)
+    test = lambda state, d: -game.startTime + time.time() > game.time/10 or d > depth or game.ifWin(state)
     eval_fn = game.eval_fn
     def maxVal(state, a, b, depth):
         if test(state, depth):
@@ -255,30 +283,41 @@ def abSearch(game, depth):
         futureMoves = game.find_all_moves(game.cur_player, state)
         for (action, futureBoard) in futureMoves:
             v = max(v, minVal(futureBoard, a, b, depth+1))
+            #print(minVal(futureBoard, a, b, depth+1))
             if v >= b:
                 return v
             a = max(a, v)
         return v
+    
     def minVal(state, a, b, depth):
         opponent = 1
         if game.cur_player == 1:
             opponent = -1
         if test(state, depth):
+            #print(1)
             return eval_fn(state, game.cur_player)
         v = float("inf")
         futureMoves = game.find_all_moves(opponent, state)
         for (action, futureBoard) in futureMoves:
+            #print(action.startX, action.startY, action.endX, action.endY)
             v = min(v, maxVal(futureBoard, a, b, depth+1))
+            #print(v)
             if v <= a:
                 return v
             b = min(b, v)
         return v
+    
     next = game.find_all_moves(game.cur_player, game.board)
+    if(len(next) == 0):
+        next = game.find_all_moves2(game.cur_player, game.board)
+    #print(game.cur_player,len(next))
     bestMove = next[0]
     bestScore = minVal(bestMove[1], -float("inf"), float("inf"), 0)
+    #print(bestScore)
     for temp in next[1:]:
         tempScore = minVal(temp[1], -float("inf"), float("inf"), 0)
-        
+        #print(temp[0].startX, temp[0].startY, temp[0].endX, temp[0].endY)
+        #print(tempScore)
         if tempScore >= bestScore:
             bestMove, bestScore = temp, tempScore
             #print(bestMove[0].endX, bestMove[0].endY, bestScore)
@@ -319,7 +358,7 @@ def main():
     newGame = game(16, color, realBoard, totalTime)
 
     if gameType == "SINGLE":
-        if not newGame.isOneInsideCamp():
+        if not newGame.isOneInsideCamp(newGame.cur_player):
             moves = set()
             for i in range(16):
                 for j in range(16):
@@ -327,7 +366,8 @@ def main():
                         if newGame.camps[i][j] != 0 and newGame.camps[i][j] != newGame.cur_player:
                             #in op camp
                             continue
-                        moves = newGame.find_moves(i, j)
+                        moves = newGame.find_moves(i, j, newGame.cur_player, newGame.board)
+                        
                         moveToX = 0
                         moveToY = 0
                         for key in moves:
@@ -339,28 +379,44 @@ def main():
                             for n in range(-1, 2):
                                 if i+m == moveToX and j+n == moveToY:
                                     temp = "E "
+                                    
                                     break
                         #if temp == "E ": continue
+                        newMoves = dict()
                         if temp == "J ":
                             newMoves = findJumpPath(newGame, i, j, moveToX, moveToY)
-                            with open("output.txt", "w") as f:
-                                if temp == "E ":
-                                    f.write(temp + str(i) + "," + str(j) + " " + str(moveToX) + "," + str(moveToY))
-                                else:
-                                    for move in newMoves:
-                                        k = 1
-                                        if k != len(moves):
-                                            f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
-                                        else:
-                                            f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
-                                        k += 1
-                            f.close()
-                            pass           
+                        
+                        with open("output.txt", "w") as f:
+                            if temp == "E ":
+                                f.write(temp + str(i) + "," + str(j) + " " + str(moveToX) + "," + str(moveToY))
+                                
+                            else:
+                                path = dict()
+                                cur = (moveToX, moveToY)
+                                parent = newMoves[cur]
+                                origin = (i, j)
+                                while(parent != origin):
+                                    path[parent] = cur
+                                    cur = parent
+                                    parent = moves[cur]
+                                path[parent] = cur
+                                k=0
+                                cur = (i, j)
+                                while k!=len(path):
+                                    if k!= len(path)-1:
+                                        f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]) + "\n")
+                                    else:
+                                        f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]))
+                                    cur = path[cur]
+                                    k+=1
+                                
+                        f.close()
+                        return        
         else:
             for i in range(16):
                 for j in range(16):
                     if newGame.camps[i][j] == newGame.cur_player and realBoard[i][j] == newGame.cur_player:
-                        moves = newGame.find_moves(i, j)
+                        moves = newGame.find_moves(i, j, newGame.cur_player, newGame.board)
                         for move in moves:
                             moveToX = move[0]
                             moveToY = move[1]
@@ -371,36 +427,52 @@ def main():
                                         if i+m == moveToX and j+n == moveToY:
                                             temp = "E "
                                             break
+                                newMoves = dict()
                                 if temp == "J ":
                                     newMoves = findJumpPath(newGame, i, j, moveToX, moveToY)
                                 with open("output.txt", "w") as f:
                                     if temp == "E ":
                                         f.write(temp + str(i) + "," + str(j) + " " + str(moveToX) + "," + str(moveToY))
                                     else:
-                                        for move in newMoves:
-                                            k = 1
-                                            if k != len(moves):
-                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
+                                        path = dict()
+                                        cur = (moveToX, moveToY)
+                                        parent = newMoves[cur]
+                                        origin = (i, j)
+                                        while(parent != origin):
+                                            path[parent] = cur
+                                            cur = parent
+                                            parent = moves[cur]
+                                        path[parent] = cur
+                                        k=0
+                                        cur = (i, j)
+                                        while k!=len(path):
+                                            if k!= len(path)-1:
+                                                f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]) + "\n")
                                             else:
-                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
-                                            k += 1
+                                                f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]))
+                                            cur = path[cur]
+                                            k+=1
                                 f.close()
-                                pass
+                                return
             cornor = (15,15)
             if newGame.cur_player == 1:
                 cornor = (0,0)
             for i in range(16):
                 for j in range(16):
                     if newGame.camps[i][j] == newGame.cur_player and realBoard[i][j] == newGame.cur_player:
-                        moves = newGame.find_moves(i, j)
+                        moves = newGame.find_moves(i, j, newGame.cur_player, newGame.board)
                         for move in moves:
                             endX = move[0]
                             endY = move[1]
-                            cornorX = cornor[0]
-                            cornorY = cornor[1]
-                            originalDis = math.fabs(i-cornorX) + math.fabs(j-cornorY)
-                            newDis = math.fabs(endX-cornorX) + math.fabs(endY-cornorY)
-                            if newDis <= originalDis:
+                            
+                            flag = 1
+                            if cornor == (0,0):
+                                if i-endX > 0 or j - endY > 0:
+                                    flag = 0
+                            elif cornor == (15, 15):
+                                if endX - i > 0 or endY - j > 0:
+                                    flag = 0
+                            if flag == 0:
                                 continue
                             else:
                                 temp = "J "
@@ -409,36 +481,67 @@ def main():
                                         if i+m == moveToX and j+n == moveToY:
                                             temp = "E "
                                             break
+                                newMoves = dict()
                                 if temp == "J ":
                                     newMoves = findJumpPath(newGame, i, j, endX, endY)
                                 with open("output.txt", "w") as f:
                                     if temp == "E ":
                                         f.write(temp + str(i) + "," + str(j) + " " + str(endX) + "," + str(endY))
                                     else:
-                                        for move in newMoves:
-                                            k = 1
-                                            if k != len(moves):
-                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
+                                        path = dict()
+                                        cur = (endX, endY)
+                                        parent = newMoves[(endX, endY)]
+                                        origin = (i, j)
+                                        while(parent != origin):
+                                            path[parent] = cur
+                                            cur = parent
+                
+                                            parent = moves[cur]
+                                        path[parent] = cur
+                                        k=0
+                                        cur = (i, j)
+                                        while k!=len(path):
+                                            if k!= len(path)-1:
+                                                f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]) + "\n")
                                             else:
-                                                f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
-                                            k += 1
+                                                f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]))
+                                            cur = path[cur]
+                                            k+=1
                                 f.close()
-                                pass
+                                return
     else:
-        nextMove = abSearch(newGame, 5)
+        nextMove = abSearch(newGame, 4)
         moves = findJumpPath(newGame, nextMove.startX, nextMove.startY, nextMove.endX, nextMove.endY)
-        #print(moves)
-
-        temp = "J "
-        with open("output.txt", "w") as f:
-            i = 1
-            for move in moves:
-                if i != len(moves):
-                    f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]) + "\n")
-                else:
-                    f.write(temp + str(moves[move][0]) + "," + str(moves[move][1]) + " " + str(move[0]) + "," + str(move[1]))
-                i += 1
-        f.close()
+        #print(nextMove.startX, nextMove.startY,nextMove.endX, nextMove.endY)
+        if len(moves) != 0:
+            temp = "J "
+            path = dict()
+            cur = (nextMove.endX, nextMove.endY)
+            
+            parent = moves[(nextMove.endX, nextMove.endY)]
+            origin = (nextMove.startX, nextMove.startY)
+            while(parent != origin):
+                path[parent] = cur
+                cur = parent
+                
+                parent = moves[cur]
+            path[parent] = cur
+            with open("output.txt", "w") as f:
+                i = 0
+                cur = (nextMove.startX, nextMove.startY)
+                while i != len(path):
+                    if i != len(path)-1:
+                        f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]) + "\n")
+                    else:
+                        f.write(temp + str(cur[0]) + "," + str(cur[1]) + " " + str(path[cur][0]) + "," + str(path[cur][1]))
+                    cur = path[cur]
+                    i += 1
+            f.close()
+        else:
+            temp = "E "
+            with open("output.txt", "w") as f:
+                f.write(temp+str(nextMove.startX)+","+str(nextMove.startY)+" "+str(nextMove.endX)+","+str(nextMove.endY))
+            f.close()
 
 
 if __name__ == "__main__":
