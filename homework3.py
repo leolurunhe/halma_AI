@@ -274,7 +274,7 @@ def findJumpPath(game, startX, startY, endX, endY):
 
 
 def abSearch(game, depth):
-    test = lambda state, d: -game.startTime + time.time() > game.time/10 or d > depth or game.ifWin(state)
+    test = lambda state, d: -game.startTime + time.time() > game.time/15 or d > depth or game.ifWin(state)
     eval_fn = game.eval_fn
     def maxVal(state, a, b, depth):
         if test(state, depth):
@@ -510,10 +510,10 @@ def main():
                                 f.close()
                                 return
     else:
-        nextMove = abSearch(newGame, 4)
+        nextMove = abSearch(newGame, 3)
         moves = findJumpPath(newGame, nextMove.startX, nextMove.startY, nextMove.endX, nextMove.endY)
         #print(nextMove.startX, nextMove.startY,nextMove.endX, nextMove.endY)
-        if len(moves) != 0:
+        if len(moves) != 0 and (nextMove.endX, nextMove.endY) in moves:
             temp = "J "
             path = dict()
             cur = (nextMove.endX, nextMove.endY)
